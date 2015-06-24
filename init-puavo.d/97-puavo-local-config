@@ -1,8 +1,12 @@
 puavo_personally_administered=$(jq -r .personally_administered \
 				      /etc/puavo/device.json)
 
-if [ "$puavo_personally_administered" = "true" ]; then
-  /usr/sbin/puavo-local-config --admins       \
-                               --grub-default \
-                               --local-users
+puavo_hosttype=$(cat /etc/puavo/hosttype)
+
+if [ "$puavo_hosttype" = "laptop" \
+     -a "$puavo_personally_administered" = "true" ]; then
+  /usr/sbin/puavo-local-config --admins                \
+                               --grub-default          \
+                               --local-users           \
+                               --networkmanager-policy
 fi
