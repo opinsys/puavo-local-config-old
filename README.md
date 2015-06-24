@@ -1,5 +1,8 @@
-puavo-local-config
-==================
+puavo-local-config-old
+======================
+
+!!! This version is an old version that is no longer actively maintained,
+!!! the new version is puavo-local-config.
 
 A configuration tool for local (host-specific) features, mostly for laptops,
 with a user interface for end users.
