@@ -29,10 +29,6 @@ puavo-local-config [OPTIONS]
     --grub-default          configure grub default
     --local-users           configure local users
     --networkmanager-policy apply special networkmanager permissions
-    --setup-pkgs            configure installed (optional) packages
-
-    --install-pkgs     ["all" | a list of software separated with comma]
-    --uninstall-pkgs   ["all" | a list of software separated with comma]
   EOF
 end
 
@@ -243,31 +239,8 @@ EOF
   end
 end
 
-def install_pkgs(pkg_list)
-  %w(download install).each do |action|
-    restricted_package_tool(action, *pkg_list) \
-      or raise "Problem in downloading: #{ pkg_list.join(', ') }"
-  end
-end
-
-def parse_pkg_list(pkg_list)
-  pkg_list == 'all' \
-    ? Dir.glob('/usr/share/puavo-ltsp-client/restricted-packages/*') \
-         .map { |s| File.basename(s) } \
-    : pkg_list.split(',')
-end
-
 def read_device()
   JSON.parse( IO.read('/state/etc/puavo/device.json') )
-end
-
-def restricted_package_tool(*args)
-  system('/usr/sbin/puavo-restricted-package-tool', *args)
-end
-
-def setup_pkgs()
-  restricted_package_tool('configure', '--all') \
-    or raise 'Problem in configuring packages'
 end
 
 def superlaptop_mode?
@@ -277,16 +250,9 @@ def superlaptop_mode?
   kernel_cmdline.match(superlaptop_mode_re) ? true : false
 end
 
-def uninstall_pkgs(pkg_list)
-  restricted_package_tool('uninstall', *pkg_list) \
-    or raise "Problem in uninstalling: #{ pkg_list.join(', ') }"
-end
-
 config_path = '/state/etc/puavo/local/config.json'
 
-apply_configs      = []
-install_pkg_list   = []
-uninstall_pkg_list = []
+apply_configs = []
 
 begin
   opts = GetoptLong.new(
@@ -296,10 +262,8 @@ begin
     [ '--admins',                GetoptLong::NO_ARGUMENT,       ],
     [ '--grub-default',          GetoptLong::NO_ARGUMENT,       ],
     [ '--local-users',           GetoptLong::NO_ARGUMENT,       ],
-    [ '--install-pkgs',          GetoptLong::REQUIRED_ARGUMENT, ],
     [ '--networkmanager-policy', GetoptLong::NO_ARGUMENT,       ],
-    [ '--setup-pkgs',            GetoptLong::NO_ARGUMENT,       ],
-    [ '--uninstall-pkgs',        GetoptLong::REQUIRED_ARGUMENT, ],
+    [ '--prepare-puavopkg',      GetoptLong::NO_ARGUMENT,       ],
   )
 
   opts.each do |opt, arg|
@@ -309,18 +273,13 @@ begin
       when '--help'
 	print_help()
 	exit(0)
-      when '--admins', '--grub-default', '--local-users'
+      when '--admins',
+           '--grub-default',
+           '--local-users', 
+           '--networkmanager-policy'
 	apply_configs.push(opt)
-      when '--install-pkgs'
-	apply_configs.push(opt)
-	install_pkg_list = parse_pkg_list(arg)
-      when '--networkmanager-policy'
-        apply_configs.push(opt)
-      when '--setup-pkgs'
-	apply_configs.push(opt)
-      when '--uninstall-pkgs'
-	apply_configs.push(opt)
-	uninstall_pkg_list = parse_pkg_list(arg)
+      when '--prepare-puavopkg'
+        # accept silently, do nothing (configuration updater calls this)
     end
   end
 
@@ -347,13 +306,10 @@ end
 conf = ensure_conf_sanity(conf, config_path)
 
 dispatch_table = {
-  '--admins'                => lambda { configure_admins()                 },
-  '--grub-default'          => lambda { configure_grub_default()           },
-  '--local-users'           => lambda { configure_local_users(conf)        },
-  '--install-pkgs'          => lambda { install_pkgs(install_pkg_list)     },
-  '--networkmanager-policy' => lambda { configure_nm_policy()              },
-  '--setup-pkgs'            => lambda { setup_pkgs()                       },
-  '--uninstall-pkgs'        => lambda { uninstall_pkgs(uninstall_pkg_list) },
+  '--admins'                => lambda { configure_admins()          },
+  '--grub-default'          => lambda { configure_grub_default()    },
+  '--local-users'           => lambda { configure_local_users(conf) },
+  '--networkmanager-policy' => lambda { configure_nm_policy()       },
 }
 
 exit_code = 0
