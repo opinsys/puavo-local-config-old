@@ -29,6 +29,7 @@ puavo-local-config [OPTIONS]
     --grub-default          configure grub default
     --local-users           configure local users
     --networkmanager-policy apply special networkmanager permissions
+    --prepare-puavopkg      setup configurations for puavo-pkg
   EOF
 end
 
@@ -250,6 +251,30 @@ def superlaptop_mode?
   kernel_cmdline.match(superlaptop_mode_re) ? true : false
 end
 
+def prepare_puavopkg()
+  File.open('/etc/puavo-pkg/puavo-pkg.conf', 'w') do |f|
+    f.print(<<'EOF')
+### This file is sourced by puavo-pkg Bash script. It must not contain
+### anything else than the variable definitions described below.
+
+### Uncomment to change the default cache directory.
+PUAVO_PKG_CACHEDIR=/images/puavo-pkg/cache
+
+### Uncomment to change the default root directory for the package tree.
+PUAVO_PKG_ROOTDIR=/images/puavo-pkg/root
+EOF
+  end
+
+  File.open('/etc/puavo-pkg/puavo-pkg-updater.conf', 'w') do |f|
+    f.print(<<'EOF')
+{
+  "bundlepath": "puavo-pkg/puavo-pkg-installers-bundle.tar",
+  "installers_dir": "/images/puavo-pkg/installers"
+}
+EOF
+  end
+end
+
 config_path = '/state/etc/puavo/local/config.json'
 
 apply_configs = []
@@ -275,11 +300,10 @@ begin
 	exit(0)
       when '--admins',
            '--grub-default',
-           '--local-users', 
-           '--networkmanager-policy'
+           '--local-users',
+           '--networkmanager-policy',
+           '--prepare-puavopkg'
 	apply_configs.push(opt)
-      when '--prepare-puavopkg'
-        # accept silently, do nothing (configuration updater calls this)
     end
   end
 
@@ -310,6 +334,7 @@ dispatch_table = {
   '--grub-default'          => lambda { configure_grub_default()    },
   '--local-users'           => lambda { configure_local_users(conf) },
   '--networkmanager-policy' => lambda { configure_nm_policy()       },
+  '--prepare-puavopkg'      => lambda { prepare_puavopkg()          },
 }
 
 exit_code = 0
